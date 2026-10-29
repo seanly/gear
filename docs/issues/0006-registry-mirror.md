@@ -42,4 +42,4 @@ Docker 守护进程没有 registry mirror 时，`gear build` 和 `gear debug` �
 - `TestParseMirror` 接受 `https://mirror.example.com/`，拒绝带路径的值，并为 `http://` 写上 `http = true`。
 - `TestBuildCreatesMirrorBuilder` 核对 toml、`buildx create` 和带 `--builder` 的构建 argv。
 - `TestBuildReusesMirrorBuilder` 核对已有 builder 时不会再次创建。
-- 另外确认镜像站 `https://mirror.example.com/v2/library/golang/manifests/1.25` 与 `moby/buildkit:buildx-stable-1` 都返回 200。本次没有实际执行 `docker buildx create`。
+- 示例主机使用 `mirror.example.com`。本次没有实际执行 `docker buildx create`。
