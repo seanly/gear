@@ -13,6 +13,8 @@
 | M4 | Linux 与 macOS 的多平台打包 | 已完成 |
 | M5 | Docker Hub 镜像加速 | 已完成 |
 | M6 | 默认导出到 `dist` | 已完成 |
+| M7 | 打印 Dockerfile 阶段依赖 | 已完成 |
+| M8 | 易读的阶段列表 | 已完成 |
 
 ## Issue
 
@@ -25,6 +27,8 @@
 | [0005](0005-multi-platform-dist.md) | 多平台打包 | 0004 | 已完成 |
 | [0006](0006-registry-mirror.md) | Docker Hub 镜像加速 | 0002 | 已完成 |
 | [0007](0007-default-output-dist.md) | 默认导出到 dist | 0002 | 已完成 |
+| [0008](0008-show-targets.md) | 打印阶段依赖 | 0001 | 已完成 |
+| [0009](0009-readable-targets.md) | 易读的阶段列表 | 0008 | 已完成 |
 
 ## 约定
 

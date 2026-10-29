@@ -6,7 +6,7 @@
 
 ## 是什么
 
-GEAR 把多阶段 Dockerfile 的某个阶段导出到宿主机。模块是 `github.com/seanly/gear`。只支持 Linux 和 macOS。Go 1.25，CLI 用 `github.com/urfave/cli/v3`，日志用 `log/slog`。
+GEAR 把多阶段 Dockerfile 的某个阶段导出到宿主机。模块是 `github.com/seanly/gear`。只支持 Linux 和 macOS。Go 1.26，CLI 用 `github.com/urfave/cli/v3`，日志用 `log/slog`。
 
 构建写在普通 Dockerfile 里。`build` 阶段安装工具并生成产物，`result` 阶段 `FROM scratch` 后只 `COPY` 要导出的目录。`gear build --target result` 调用：
 
@@ -37,6 +37,7 @@ GEAR 不复制 Dapper 的 `Dockerfile.dapper`、bind/cp 和 `docker cp`。产物
 
 - `gear build` 把指定阶段导出到目录。
 - `gear debug` 把指定阶段加载到本机引擎并进入 shell。
+- `gear show targets` 列出 Dockerfile 的阶段和阶段依赖。
 - 退出码沿用 `docker buildx`。
 - 没有 `docker buildx` 时失败。
 

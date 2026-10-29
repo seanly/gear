@@ -20,9 +20,13 @@ COPY --from=build /out /
 gear build --target result
 gear build --target result --file examples/Dockerfile
 gear debug --target build
+gear show targets
+gear show targets --file examples/Dockerfile
 ```
 
 `--file` / `-f` 默认是当前目录的 `Dockerfile`。`--target` 是阶段名。`--output` / `-o` 默认是 `dist`，阶段根写到这个目录；要换目录再写 `--output`。构建上下文默认是当前目录 `.`，也可以在命令末尾再写一个路径。`gear debug` 后面的参数传给容器里的 `/bin/sh`；没有参数时进入交互 shell。标准输出是终端时才会加上 `-t`。
+
+`gear show targets` 只读 Dockerfile，不调用 Docker。每个阶段单独成组，依赖用 `FROM`、`COPY --from` 和 `RUN --mount from` 写在名字下面。文件里写了默认值的 `ARG` 会展开；没有默认值的变量保持原文。`INCLUDE`、`ADD --from` 和其他未知指令会失败。
 
 Docker 守护进程没有 registry mirror 时，可以给这一次构建单独指定 Docker Hub 镜像站：
 

@@ -41,6 +41,26 @@ func main() {
 					return gear.Debug(mustRunner(), request(c, true))
 				},
 			},
+			{
+				Name:  "show",
+				Usage: "Show Dockerfile information",
+				Commands: []*cli.Command{
+					{
+						Name:        "targets",
+						Usage:       "List stages and stage dependencies",
+						Flags:       []cli.Flag{fileFlag()},
+						Description: "Examples:\n  gear show targets\n  gear show targets --file examples/Dockerfile",
+						Action: func(_ context.Context, c *cli.Command) error {
+							out, err := gear.ShowTargetsFile(c.String("file"))
+							if err != nil {
+								return err
+							}
+							fmt.Fprint(os.Stdout, out)
+							return nil
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -50,14 +70,18 @@ func main() {
 	}
 }
 
+func fileFlag() *cli.StringFlag {
+	return &cli.StringFlag{
+		Name:    "file",
+		Aliases: []string{"f"},
+		Value:   gear.DefaultFile,
+		Usage:   "Dockerfile to build",
+	}
+}
+
 func sharedFlags() []cli.Flag {
 	return []cli.Flag{
-		&cli.StringFlag{
-			Name:    "file",
-			Aliases: []string{"f"},
-			Value:   gear.DefaultFile,
-			Usage:   "Dockerfile to build",
-		},
+		fileFlag(),
 		&cli.StringFlag{
 			Name:  "target",
 			Usage: "Dockerfile stage to build",
