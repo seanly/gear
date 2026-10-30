@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 )
 
@@ -16,7 +17,9 @@ const (
 	// DefaultOutput is the host directory that receives the exported stage.
 	DefaultOutput = "dist"
 	// DebugImage is the local tag used by gear debug.
-	DebugImage   = "gear-debug"
+	DebugImage = "gear-debug"
+	// RunImage is the local tag used by gear run.
+	RunImage     = "gear-run"
 	defaultShell = "/bin/sh"
 )
 
@@ -29,14 +32,16 @@ type Runner interface {
 
 // Request is one build or debug invocation.
 type Request struct {
-	File           string
-	Target         string
-	Output         string
-	Context        string
-	BuildArgs      []string
-	Secret         string
-	CacheFrom      string
-	CacheTo        string
+	File      string
+	Target    string
+	Output    string
+	Context   string
+	BuildArgs []string
+	Secret    string
+	CacheFrom string
+	CacheTo   string
+	// BuildContexts are extra named contexts, each "name=value", passed through to buildx.
+	BuildContexts  []string
 	Platform       string
 	RegistryMirror string
 	// Builder is the buildx instance selected for RegistryMirror.
@@ -44,6 +49,14 @@ type Request struct {
 	Shell   string
 	Command []string
 	TTY     bool
+	// SourceDir is the host directory gear run mounts. Empty for build and debug.
+	SourceDir string
+	// Volumes are extra docker run -v values, host:container[:opts].
+	Volumes []string
+	// Env are extra docker run -e values.
+	Env []string
+	// Entrypoint overrides the image entrypoint when set.
+	Entrypoint string
 }
 
 func (r Request) file() string {
@@ -139,7 +152,28 @@ func commonArgs(r Request) []string {
 	if r.Platform != "" {
 		args = append(args, "--platform", r.Platform)
 	}
+	for _, v := range r.BuildContexts {
+		if v == "" {
+			continue
+		}
+		args = append(args, "--build-context", v)
+	}
 	return args
+}
+
+// validateBuildContexts rejects values that are not name=value.
+// Empty entries are ignored. The value itself is not interpreted.
+func validateBuildContexts(values []string) error {
+	for _, v := range values {
+		if v == "" {
+			continue
+		}
+		name, _, ok := strings.Cut(v, "=")
+		if !ok || name == "" {
+			return fmt.Errorf("build context %q must be name=path, for example --build-context m2=/var/cache/m2", v)
+		}
+	}
+	return nil
 }
 
 // EnsureBuildx fails when the docker CLI has no buildx plugin.
@@ -153,6 +187,9 @@ func EnsureBuildx(r Runner) error {
 
 // Build exports the requested stage.
 func prepare(r Runner, req *Request) error {
+	if err := validateBuildContexts(req.BuildContexts); err != nil {
+		return err
+	}
 	if err := EnsureBuildx(r); err != nil {
 		return err
 	}

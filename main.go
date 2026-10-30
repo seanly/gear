@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/mattn/go-isatty"
 	"github.com/seanly/gear/internal/gear"
@@ -39,6 +40,20 @@ func main() {
 				Flags:     sharedFlags(),
 				Action: func(_ context.Context, c *cli.Command) error {
 					return gear.Debug(mustRunner(), request(c, true))
+				},
+			},
+			{
+				Name:        "run",
+				Usage:       "Run a stage with the working directory mounted",
+				ArgsUsage:   "[command...]",
+				Description: "Examples:\n  gear run --target build ci\n  gear run --file .gear/Dockerfile --target build ci",
+				Flags:       append(sharedFlags(), runFlags()...),
+				Action: func(_ context.Context, c *cli.Command) error {
+					req, err := requestRun(c)
+					if err != nil {
+						return err
+					}
+					return gear.Mount(mustRunner(), req)
 				},
 			},
 			{
@@ -106,10 +121,31 @@ func sharedFlags() []cli.Flag {
 			Name:  "platform",
 			Usage: "Target platform, for example linux/amd64",
 		},
+		&cli.StringSliceFlag{
+			Name:  "build-context",
+			Usage: "Additional named build context, repeatable (name=path)",
+		},
 		&cli.StringFlag{
 			Name:    "registry-mirror",
 			Sources: cli.EnvVars("GEAR_REGISTRY_MIRROR"),
 			Usage:   "Docker Hub mirror host used when the daemon has none, for example mirror.example.com",
+		},
+	}
+}
+
+func runFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringSliceFlag{
+			Name:  "volume",
+			Usage: "Extra volume mounted into the container, repeatable (host:container[:opts])",
+		},
+		&cli.StringSliceFlag{
+			Name:  "env",
+			Usage: "Extra environment variable, repeatable (NAME or NAME=VALUE)",
+		},
+		&cli.StringFlag{
+			Name:  "entrypoint",
+			Usage: "Override the image entrypoint",
 		},
 	}
 }
@@ -131,6 +167,7 @@ func request(c *cli.Command, debug bool) gear.Request {
 		Secret:         c.String("secret"),
 		CacheFrom:      c.String("cache-from"),
 		CacheTo:        c.String("cache-to"),
+		BuildContexts:  c.StringSlice("build-context"),
 		Platform:       c.String("platform"),
 		RegistryMirror: c.String("registry-mirror"),
 		TTY:            isatty.IsTerminal(os.Stdout.Fd()),
@@ -144,6 +181,23 @@ func request(c *cli.Command, debug bool) gear.Request {
 		req.Context = c.Args().First()
 	}
 	return req
+}
+
+func requestRun(c *cli.Command) (gear.Request, error) {
+	req := request(c, true)
+	wd, err := os.Getwd()
+	if err != nil {
+		return gear.Request{}, err
+	}
+	abs, err := filepath.Abs(wd)
+	if err != nil {
+		return gear.Request{}, err
+	}
+	req.SourceDir = abs
+	req.Volumes = c.StringSlice("volume")
+	req.Env = c.StringSlice("env")
+	req.Entrypoint = c.String("entrypoint")
+	return req, nil
 }
 
 func mustRunner() gear.Runner {

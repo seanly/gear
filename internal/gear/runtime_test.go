@@ -41,6 +41,62 @@ func TestBuildArgvOptionalFlags(t *testing.T) {
 	}
 }
 
+func TestBuildContextArgv(t *testing.T) {
+	got := strings.Join(BuildArgv(Request{
+		Target: "result",
+		BuildContexts: []string{
+			"",
+			"m2=/var/cache/jenkins/java/maven/repository",
+			"npm=/var/cache/jenkins/nodejs20",
+		},
+	}), " ")
+	want := strings.Join([]string{
+		"buildx", "build", "--file", "Dockerfile", "--target", "result",
+		"--output", "type=local,dest=dist",
+		"--build-context", "m2=/var/cache/jenkins/java/maven/repository",
+		"--build-context", "npm=/var/cache/jenkins/nodejs20",
+		".",
+	}, " ")
+	if got != want {
+		t.Fatalf("got %s", got)
+	}
+}
+
+func TestBuildContextOmitted(t *testing.T) {
+	got := BuildArgv(Request{Target: "result"})
+	if strings.Contains(strings.Join(got, " "), "--build-context") {
+		t.Fatalf("argv %v", got)
+	}
+}
+
+func TestDebugBuildContext(t *testing.T) {
+	build := strings.Join(DebugBuildArgv(Request{
+		Target:        "build",
+		BuildContexts: []string{"src=."},
+	}), " ")
+	want := "buildx build --load -t gear-debug --file Dockerfile --target build --build-context src=. ."
+	if build != want {
+		t.Fatalf("build %s", build)
+	}
+}
+
+func TestBuildContextRejectedBeforeDocker(t *testing.T) {
+	f := &fake{}
+	for _, v := range []string{"nopath", "=onlyvalue"} {
+		err := Build(f, Request{Target: "result", BuildContexts: []string{v}})
+		if err == nil || !strings.Contains(err.Error(), "must be name=path") {
+			t.Fatalf("context %q: %v", v, err)
+		}
+		err = Debug(f, Request{Target: "build", BuildContexts: []string{v}})
+		if err == nil || !strings.Contains(err.Error(), "must be name=path") {
+			t.Fatalf("debug context %q: %v", v, err)
+		}
+	}
+	if len(f.calls) != 0 {
+		t.Fatalf("docker called: %v", f.calls)
+	}
+}
+
 func TestDebugArgv(t *testing.T) {
 	build := strings.Join(DebugBuildArgv(Request{Target: "build", Secret: "id=s"}), " ")
 	if build != "buildx build --load -t gear-debug --file Dockerfile --target build --secret id=s ." {
@@ -104,6 +160,7 @@ type fake struct {
 	runErr         error
 	inspectMissing bool
 	config         string
+	imageInspect   string
 }
 
 func (f *fake) Run(_ io.Reader, args ...string) error {
@@ -122,6 +179,12 @@ func (f *fake) Run(_ io.Reader, args ...string) error {
 
 func (f *fake) Output(args ...string) ([]byte, error) {
 	f.calls = append(f.calls, append([]string(nil), args...))
+	if len(args) >= 2 && args[0] == "image" && args[1] == "inspect" {
+		if f.imageInspect == "" {
+			return nil, errors.New("image inspect not stubbed")
+		}
+		return []byte(f.imageInspect), nil
+	}
 	if len(args) >= 2 && args[1] == "inspect" && f.inspectMissing {
 		return nil, errors.New("no builder")
 	}
